@@ -66,6 +66,52 @@ def create_tables(conn):
     conn.commit()
 
 
+@app.route('/api/employee_kpis/<emp_id>', methods=['GET'])
+def get_employee_kpis(emp_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # ดึงข้อมูลพนักงาน
+    cur.execute("""
+        SELECT department 
+        FROM employees 
+        WHERE emp_id = %s
+    """, (emp_id,))
+    employee = cur.fetchone()
+    if not employee:
+        return jsonify({"error": "Employee not found"}), 404
+
+    department = employee[0]
+    
+    # ดึงข้อมูลภารกิจและ KPIs
+    cur.execute("""
+        SELECT m.mission_name, k.kpi_name, k.kpi_category
+        FROM missions m
+        JOIN kpis k ON m.id = k.mission_id
+        WHERE m.emp_id = %s
+    """, (emp_id,))
+    missions_kpis = cur.fetchall()
+    cur.close()
+    conn.close()
+    
+    # สร้างข้อมูลสำหรับ frontend
+    missions = {}
+    for mission_name, kpi_name, kpi_category in missions_kpis:
+        if mission_name not in missions:
+            missions[mission_name] = []
+        missions[mission_name].append({
+            "kpi_name": kpi_name,
+            "kpi_category": kpi_category
+        })
+    
+    return jsonify({
+        "department": department,
+        "emp_id": emp_id,
+        "missions": [{
+            "mission_name": mission,
+            "kpis": missions[mission]
+        } for mission in missions]
+    })
 
 # if __name__ == '__main__':
 #     # สร้างตาราง (ถ้ายังไม่มี)
