@@ -6,8 +6,8 @@ from pythainlp.tokenize import word_tokenize
 app = Flask(__name__)
 
 # โหลดโมเดลและ vectorizer เมื่อเริ่ม API
-model = joblib.load("kpi_model.pkl")
-vectorizer = joblib.load("tfidf_vectorizer.pkl")
+model = joblib.load("models/kpi_model.pkl")
+vectorizer = joblib.load("models/tfidf_vectorizer.pkl")
 
 def preprocess_text(text):
     words = word_tokenize(str(text), keep_whitespace=False)
@@ -63,59 +63,66 @@ def create_tables(conn):
                 FOREIGN KEY (kpi_id) REFERENCES kpis(id)
             );
         """)
+        # สร้าง extension สำหรับ UUID (ใช้เครื่องหมาย single quote ครอบ outer string)
+        cur.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
+        # สร้างตาราง Users
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Users (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                firstNameTH TEXT,
+                lastNameTH TEXT,
+                firstNameEN TEXT,
+                lastNameEN TEXT,
+            );
+        """)
     conn.commit()
 
-
-@app.route('/api/employee_kpis/<emp_id>', methods=['GET'])
-def get_employee_kpis(emp_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    # ดึงข้อมูลพนักงาน
-    cur.execute("""
-        SELECT department 
-        FROM employees 
-        WHERE emp_id = %s
-    """, (emp_id,))
-    employee = cur.fetchone()
-    if not employee:
-        return jsonify({"error": "Employee not found"}), 404
-
-    department = employee[0]
-    
-    # ดึงข้อมูลภารกิจและ KPIs
-    cur.execute("""
-        SELECT m.mission_name, k.kpi_name, k.kpi_category
-        FROM missions m
-        JOIN kpis k ON m.id = k.mission_id
-        WHERE m.emp_id = %s
-    """, (emp_id,))
-    missions_kpis = cur.fetchall()
-    cur.close()
-    conn.close()
-    
-    # สร้างข้อมูลสำหรับ frontend
-    missions = {}
-    for mission_name, kpi_name, kpi_category in missions_kpis:
-        if mission_name not in missions:
-            missions[mission_name] = []
-        missions[mission_name].append({
-            "kpi_name": kpi_name,
-            "kpi_category": kpi_category
-        })
-    
-    return jsonify({
-        "department": department,
-        "emp_id": emp_id,
-        "missions": [{
-            "mission_name": mission,
-            "kpis": missions[mission]
-        } for mission in missions]
-    })
-
-# if __name__ == '__main__':
-#     # สร้างตาราง (ถ้ายังไม่มี)
+# @app.route('/api/employee_kpis/<emp_id>', methods=['GET'])
+# def get_employee_kpis(emp_id):
 #     conn = get_db_connection()
-#     create_tables(conn)
+#     cur = conn.cursor()
+
+#     # ดึงข้อมูลพนักงาน
+#     cur.execute("""
+#         SELECT department 
+#         FROM employees 
+#         WHERE emp_id = %s
+#     """, (emp_id,))
+#     employee = cur.fetchone()
+#     if not employee:
+#         cur.close()
+#         conn.close()
+#         return jsonify({"error": "Employee not found"}), 404
+
+#     department = employee[0]
+    
+#     # ดึงข้อมูลภารกิจและ KPIs
+#     cur.execute("""
+#         SELECT m.mission_name, k.kpi_name, k.kpi_category
+#         FROM missions m
+#         JOIN kpis k ON m.id = k.mission_id
+#         WHERE m.emp_id = %s
+#     """, (emp_id,))
+#     missions_kpis = cur.fetchall()
+#     cur.close()
 #     conn.close()
-#     app.run(debug=True)
+    
+#     # สร้างข้อมูลสำหรับ frontend
+#     missions = {}
+#     for mission_name, kpi_name, kpi_category in missions_kpis:
+#         if mission_name not in missions:
+#             missions[mission_name] = []
+#         missions[mission_name].append({
+#             "kpi_name": kpi_name,
+#             "kpi_category": kpi_category
+#         })
+    
+#     return jsonify({
+#         "department": department,
+#         "emp_id": emp_id,
+#         "missions": [ {
+#             "mission_name": mission,
+#             "kpis": missions[mission]
+#         } for mission in missions ]
+#     })
+

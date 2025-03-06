@@ -1,6 +1,6 @@
-from flask import Flask
+from app import Flask
 from app.api import api_bp  # Assuming you have a valid Blueprint setup in api.py
-from flask_cors import CORS
+from app import CORS
 
 def create_app():
     app = Flask(__name__)
@@ -11,3 +11,6 @@ def create_app():
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True)
+
+
+# python -m app.app
